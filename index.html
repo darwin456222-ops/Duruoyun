@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil 4 Kişilik Refleks Yarışı</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Arial', sans-serif;
+        }
+        /* Oyun Alanı Düzeni */
+        .grid-konteyner {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* Oyuncu Butonları */
+        .buton {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            active-background: rgba(255,255,255,0.2);
+            transition: background-color 0.1s;
+        }
+        /* Oyuncu Renkleri */
+        #p1 { background-color: #e74c3c; } /* Kırmızı - Sol Üst */
+        #p2 { background-color: #3498db; } /* Mavi - Sağ Üst */
+        #p3 { background-color: #2ecc71; } /* Yeşil - Sol Alt */
+        #p4 { background-color: #f1c40f; } /* Sarı - Sağ Alt */
+
+        /* Dokunma Hissiyatı */
+        #p1:active { background-color: #c0392b; }
+        #p2:active { background-color: #2980b9; }
+        #p3:active { background-color: #27ae60; }
+        #p4:active { background-color: #f39c12; }
+
+        .skor {
+            font-size: 32px;
+            margin-top: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+
+        /* Orta Alan (Hedef Daire) */
+        .orta-alan {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 140px;
+            height: 140px;
+            background-color: #2c3e50;
+            border-radius: 50%;
+            border: 8px solid #1a1a1a;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .hedef-daire {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            transition: background-color 0.1s;
+        }
+
+        /* Oyun Bitti Ekranı */
+        .bitis-ekrani {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 3;
+            color: white;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .bitis-ekrani h1 { font-size: 40px; margin-bottom: 20px; }
+        .tekrar-et-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #34495e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-konteyner">
+        <div id="p1" class="buton" ontouchstart="dokunmaEtkinligi('p1')">Kırmızı <div class="skor" id="s1">0</div></div>
+        <div id="p2" class="buton" ontouchstart="dokunmaEtkinligi('p2')">Mavi <div class="skor" id="s2">0</div></div>
+        <div id="p3" class="buton" ontouchstart="dokunmaEtkinligi('p3')">Yeşil <div class="skor" id="s3">0</div></div>
+        <div id="p4" class="buton" ontouchstart="dokunmaEtkinligi('p4')">Sarı <div class="skor" id="s4">0</div></div>
+    </div>
+
+    <div class="orta-alan">
+        <div id="hedef" class="hedef-daire"></div>
+    </div>
+
+    <div id="bitis" class="bitis-ekrani">
+        <h1 id="kazanan-metni">KAZANAN!</h1>
+        <button class="tekrar-et-btn" onclick="oyunuSifirla()">Yeniden Başla</button>
+    </div>
+
+    <script>
+        const oyuncular = {
+            p1: { isim: "Kırmızı", renk: "#e74c3c", skor: 0, skorElement: document.getElementById("s1") },
+            p2: { isim: "Mavi", renk: "#3498db", skor: 0, skorElement: document.getElementById("s2") },
+            p3: { isim: "Yeşil", renk: "#2ecc71", skor: 0, skorElement: document.getElementById("s3") },
+            p4: { isim: "Sarı", renk: "#f1c40f", skor: 0, skorElement: document.getElementById("s4") }
+        };
+
+        const renkAnahtarlari = ["p1", "p2", "p3", "p4"];
+        let aktifRenkAnahtari = "";
+        let oyunBitti = false;
+        const hedefDaire = document.getElementById("hedef");
+
+        function yeniRenkSec() {
+            if (oyunBitti) return;
+            // Rastgele bir oyuncunun rengini seç
+            aktifRenkAnahtari = renkAnahtarlari[Math.floor(Math.random() * renkAnahtarlari.length)];
+            hedefDaire.style.backgroundColor = oyuncular[aktifRenkAnahtari].renk;
+        }
+
+        function dokunmaEtkinligi(oyuncuAnahtari) {
+            if (oyunBitti) return;
+
+            if (oyuncuAnahtari === aktifRenkAnahtari) {
+                // Doğru dokunuş! Puan kazanır
+                oyuncular[oyuncuAnahtari].skor += 1;
+                oyuncular[oyuncuAnahtari].skorElement.innerText = oyuncular[oyuncuAnahtari].skor;
+
+                // 10 puana ulaşan kazansın
+                if (oyuncular[oyuncuAnahtari].skor >= 10) {
+                    oyunBitti = true;
+                    document.getElementById("kazanan-metni").innerText = `${oyuncular[oyuncuAnahtari].isim} Kazandı! 🎉`;
+                    document.getElementById("bitis").style.display = "flex";
+                } else {
+                    yeniRenkSec();
+                }
+            } else {
+                // Yanlış dokunuş! Puan kaybeder
+                oyuncular[oyuncuAnahtari].skor = Math.max(0, oyuncular[oyuncuAnahtari].skor - 1);
+                oyuncular[oyuncuAnahtari].skorElement.innerText = oyuncular[oyuncuAnahtari].skor;
+            }
+        }
+
+        function oyunuSifirla() {
+            oyunBitti = false;
+            document.getElementById("bitis").style.display = "none";
+            for (let anahtar in oyuncular) {
+                oyuncular[anahtar].skor = 0;
+                oyuncular[anahtar].skorElement.innerText = "0";
+            }
+            yeniRenkSec();
+        }
+
+        // Oyunu ilk kez başlat
+        yeniRenkSec();
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil 4 Kişilik Refleks Yarışı</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Arial', sans-serif;
+        }
+        /* Oyun Alanı Düzeni */
+        .grid-konteyner {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* Oyuncu Butonları */
+        .buton {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            active-background: rgba(255,255,255,0.2);
+            transition: background-color 0.1s;
+        }
+        /* Oyuncu Renkleri */
+        #p1 { background-color: #e74c3c; } /* Kırmızı - Sol Üst */
+        #p2 { background-color: #3498db; } /* Mavi - Sağ Üst */
+        #p3 { background-color: #2ecc71; } /* Yeşil - Sol Alt */
+        #p4 { background-color: #f1c40f; } /* Sarı - Sağ Alt */
+
+        /* Dokunma Hissiyatı */
+        #p1:active { background-color: #c0392b; }
+        #p2:active { background-color: #2980b9; }
+        #p3:active { background-color: #27ae60; }
+        #p4:active { background-color: #f39c12; }
+
+        .skor {
+            font-size: 32px;
+            margin-top: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 15px;
+            border-radius: 10px;
+        }
+
+        /* Orta Alan (Hedef Daire) */
+        .orta-alan {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 140px;
+            height: 140px;
+            background-color: #2c3e50;
+            border-radius: 50%;
+            border: 8px solid #1a1a1a;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .hedef-daire {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            transition: background-color 0.1s;
+        }
+
+        /* Oyun Bitti Ekranı */
+        .bitis-ekrani {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 3;
+            color: white;
+            text-align: center;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .bitis-ekrani h1 { font-size: 40px; margin-bottom: 20px; }
+        .tekrar-et-btn {
+            padding: 15px 30px;
+            font-size: 20px;
+            background-color: #34495e;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-konteyner">
+        <div id="p1" class="buton" ontouchstart="dokunmaEtkinligi('p1')">Kırmızı <div class="skor" id="s1">0</div></div>
+        <div id="p2" class="buton" ontouchstart="dokunmaEtkinligi('p2')">Mavi <div class="skor" id="s2">0</div></div>
+        <div id="p3" class="buton" ontouchstart="dokunmaEtkinligi('p3')">Yeşil <div class="skor" id="s3">0</div></div>
+        <div id="p4" class="buton" ontouchstart="dokunmaEtkinligi('p4')">Sarı <div class="skor" id="s4">0</div></div>
+    </div>
+
+    <div class="orta-alan">
+        <div id="hedef" class="hedef-daire"></div>
+    </div>
+
+    <div id="bitis" class="bitis-ekrani">
+        <h1 id="kazanan-metni">KAZANAN!</h1>
+        <button class="tekrar-et-btn" onclick="oyunuSifirla()">Yeniden Başla</button>
+    </div>
+
+    <script>
+        const oyuncular = {
+            p1: { isim: "Kırmızı", renk: "#e74c3c", skor: 0, skorElement: document.getElementById("s1") },
+            p2: { isim: "Mavi", renk: "#3498db", skor: 0, skorElement: document.getElementById("s2") },
+            p3: { isim: "Yeşil", renk: "#2ecc71", skor: 0, skorElement: document.getElementById("s3") },
+            p4: { isim: "Sarı", renk: "#f1c40f", skor: 0, skorElement: document.getElementById("s4") }
+        };
+
+        const renkAnahtarlari = ["p1", "p2", "p3", "p4"];
+        let aktifRenkAnahtari = "";
+        let oyunBitti = false;
+        const hedefDaire = document.getElementById("hedef");
+
+        function yeniRenkSec() {
+            if (oyunBitti) return;
+            // Rastgele bir oyuncunun rengini seç
+            aktifRenkAnahtari = renkAnahtarlari[Math.floor(Math.random() * renkAnahtarlari.length)];
+            hedefDaire.style.backgroundColor = oyuncular[aktifRenkAnahtari].renk;
+        }
+
+        function dokunmaEtkinligi(oyuncuAnahtari) {
+            if (oyunBitti) return;
+
+            if (oyuncuAnahtari === aktifRenkAnahtari) {
+                // Doğru dokunuş! Puan kazanır
+                oyuncular[oyuncuAnahtari].skor += 1;
+                oyuncular[oyuncuAnahtari].skorElement.innerText = oyuncular[oyuncuAnahtari].skor;
+
+                // 10 puana ulaşan kazansın
+                if (oyuncular[oyuncuAnahtari].skor >= 10) {
+                    oyunBitti = true;
+                    document.getElementById("kazanan-metni").innerText = `${oyuncular[oyuncuAnahtari].isim} Kazandı! 🎉`;
+                    document.getElementById("bitis").style.display = "flex";
+                } else {
+                    yeniRenkSec();
+                }
+            } else {
+                // Yanlış dokunuş! Puan kaybeder
+                oyuncular[oyuncuAnahtari].skor = Math.max(0, oyuncular[oyuncuAnahtari].skor - 1);
+                oyuncular[oyuncuAnahtari].skorElement.innerText = oyuncular[oyuncuAnahtari].skor;
+            }
+        }
+
+        function oyunuSifirla() {
+            oyunBitti = false;
+            document.getElementById("bitis").style.display = "none";
+            for (let anahtar in oyuncular) {
+                oyuncular[anahtar].skor = 0;
+                oyuncular[anahtar].skorElement.innerText = "0";
+            }
+            yeniRenkSec();
+        }
+
+        // Oyunu ilk kez başlat
+        yeniRenkSec();
+    </script>
+</body>
+</html>
