@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Pets - All In One Screen</title>
+    <title>My Talking Pets 3D - Master Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,6 +13,7 @@
             -webkit-user-select: none;
         }
         body {
+            /* Beyaz ekran hatasını tamamen bitiren, karakterleri öne çıkaran derin stüdyo arka planı */
             background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 100%);
             color: #fff;
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -25,6 +26,54 @@
             padding: 20px;
         }
         
+        #selection-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(9, 13, 22, 0.98);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 25px;
+        }
+        #selection-screen h1 {
+            font-size: 32px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
+        .char-select-btn {
+            color: white;
+            border: none;
+            padding: 16px 45px;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            width: 260px;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .char-select-btn.gus {
+            background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+        }
+        .char-select-btn.flip {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+        }
+        .char-select-btn.sugar {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+        }
+        .char-select-btn:active {
+            transform: scale(0.95);
+        }
+
         #ui-top {
             background: rgba(15, 23, 42, 0.75);
             padding: 12px 30px;
@@ -35,9 +84,8 @@
             font-size: 20px;
             letter-spacing: 1px;
             z-index: 10;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-            margin-top: 10px;
-            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            display: none;
         }
         #canvas-container {
             position: absolute;
@@ -48,17 +96,13 @@
             z-index: 1;
         }
         #ui-bottom {
-            background: rgba(15, 23, 42, 0.6);
-            padding: 15px 25px;
-            border-radius: 25px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            display: flex;
+            display: none;
             gap: 25px;
             z-index: 10;
-            width: auto;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            width: 100%;
+            max-width: 400px;
+            justify-content: center;
+            margin-bottom: 30px;
         }
         .action-btn {
             background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
@@ -68,17 +112,32 @@
             border-radius: 50%;
             font-size: 28px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
-            transition: transform 0.1s, box-shadow 0.1s;
-            width: 68px;
-            height: 68px;
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+            transition: transform 0.1s;
+            width: 70px;
+            height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .action-btn:active {
             transform: scale(0.9);
-            box-shadow: 0 2px 5px rgba(124, 58, 237, 0.2);
+        }
+        #back-btn {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 15px;
+            z-index: 20;
+            cursor: pointer;
+            display: none;
         }
         #loading-text {
             position: absolute;
@@ -88,12 +147,13 @@
             font-size: 16px;
             color: #94a3b8;
             z-index: 105;
-            background: rgba(15, 23, 42, 0.9);
+            background: rgba(15, 23, 42, 0.95);
             padding: 15px 30px;
             border-radius: 14px;
             border: 1px solid #334155;
             pointer-events: none;
             text-align: center;
+            display: none;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -101,36 +161,85 @@
 </head>
 <body>
 
-    <div id="ui-top">🐾 THE PETS PARTY 3D 🐾</div>
+    <div id="selection-screen">
+        <h1>3D KARAKTER SEÇ</h1>
+        <button class="char-select-btn gus" onclick="selectCharacter('gus')">Talking Gus 🐾</button>
+        <button class="char-select-btn flip" onclick="selectCharacter('flip')">Talking Flip 🐶</button>
+        <button class="char-select-btn sugar" onclick="selectCharacter('sugar')">Talking Sugar 🐱</button>
+    </div>
+
+    <button id="back-btn" onclick="goBack()">⬅ Karakter Değiştir</button>
+    <div id="ui-top">🐾 MY TALKING PET 🐾</div>
     
-    <div id="loading-text">Evcil Hayvanlar Eve Toplanıyor...</div>
+    <div id="loading-text">Karakter Odaya Çağrılıyor...</div>
     <div id="canvas-container"></div>
 
     <div id="ui-bottom">
-        <button class="action-btn" onclick="interactAll('feed')">🍖</button>
-        <button class="action-btn" onclick="interactAll('poke')">👉</button>
-        <button class="action-btn" onclick="interactAll('dance')">🕺</button>
+        <button class="action-btn" onclick="interact('feed')">🍖</button>
+        <button class="action-btn" onclick="interact('poke')">👉</button>
+        <button class="action-btn" onclick="interact('dance')">🕺</button>
     </div>
 
 <script>
-    let scene, camera, renderer;
-    let models = { gus: null, flip: null, sugar: null };
-    let mixers = [];
+    let scene, camera, renderer, petModel, mixer;
     let clock = new THREE.Clock();
+    let currentPet = 'gus';
 
+    // 🔗 Tamamen sana ait temiz raw linkler
     const urls = {
         gus: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_gus.glb",
         flip: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_flip%20(1).glb",
         sugar: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_sugar.glb"
     };
 
+    function selectCharacter(pet) {
+        currentPet = pet;
+        document.getElementById('selection-screen').style.display = 'none';
+        document.getElementById('ui-top').style.display = 'block';
+        document.getElementById('ui-bottom').style.display = 'flex';
+        document.getElementById('back-btn').style.display = 'block';
+        
+        const uiTop = document.getElementById('ui-top');
+        const actionButtons = document.querySelectorAll('.action-btn');
+        
+        if (pet === 'gus') {
+            uiTop.innerText = "🐾 TALKING GUS 3D 🐾";
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)');
+        } else if (pet === 'flip') {
+            uiTop.innerText = "🐶 TALKING FLIP 3D 🐾";
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)');
+        } else if (pet === 'sugar') {
+            uiTop.innerText = "🐱 TALKING SUGAR 3D 🐾";
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)');
+        }
+
+        if (!scene) {
+            init3D();
+        } else {
+            loadPetModel();
+        }
+    }
+
+    function goBack() {
+        document.getElementById('selection-screen').style.display = 'flex';
+        document.getElementById('ui-top').style.display = 'none';
+        document.getElementById('ui-bottom').style.display = 'none';
+        document.getElementById('back-btn').style.display = 'none';
+        
+        if (petModel) {
+            scene.remove(petModel);
+            petModel = null;
+            mixer = null;
+        }
+    }
+
     function init3D() {
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
-        // Üçünü birden genişçe görmek için kamerayı çok hafif geriye ve yukarıya aldık
-        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
-        camera.position.set(0, 0.35, 1.6); 
+        // 🎯 Kamerayı tam oda odağına getirdik (Karakterler dev gibi karşımızda duracak)
+        camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.01, 1000);
+        camera.position.set(0, 0.2, 1.4); 
         camera.lookAt(0, 0.15, 0);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -139,121 +248,92 @@
         renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(renderer.domElement);
 
-        // 💡 Odayı aydınlatan ve karakterleri canlandıran güçlü stüdyo ışıkları
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2.4);
+        // 💡 Karakterlerin detaylarını pırıl pırıl gösteren stüdyo ışıkları
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.6);
         scene.add(ambientLight);
 
-        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.5);
-        dirLight1.position.set(4, 10, 6);
-        scene.add(dirLight1);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        dirLight.position.set(4, 10, 5);
+        scene.add(dirLight);
 
-        const dirLight2 = new THREE.DirectionalLight(0xa855f7, 0.6); // Karakterlere tatlı mor bir sahne havası verir
-        dirLight2.position.set(-4, 5, -2);
-        scene.add(dirLight2);
-
-        // 🏠 KODLA ODA ZEMİNİ OLUŞTURMA (Beyaz hatayı bitiren harika 3D taban)
-        const floorGeo = new THREE.PlaneGeometry(10, 10);
-        const floorMat = new THREE.MeshStandardMaterial({ 
-            color: 0x1e1b4b, 
-            roughness: 0.6,
-            metalness: 0.1
-        });
+        // 🧱 Yumuşak bir zemin gölgesi paneli (Ayakları havada kalmasın diye)
+        const floorGeo = new THREE.PlaneGeometry(5, 5);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.25;
+        floor.position.y = -0.3;
         scene.add(floor);
 
-        // Sırayla modellerimizi yükleyelim
-        loadAllModels();
+        loadPetModel();
 
         window.addEventListener('resize', onWindowResize, false);
         animate();
     }
 
-    let loadedCount = 0;
-    function loadAllModels() {
-        const loader = new THREE.GLTFLoader();
-
-        // 1. GUS'I YÜKLE (Tam Ortada)
-        loader.load(urls.gus, function(gltf) {
-            models.gus = gltf.scene;
-            models.gus.position.set(0, -0.22, 0); // Merkez
-            models.gus.scale.set(0.9, 0.9, 0.9);
-            scene.add(models.gus);
-            if(gltf.animations.length > 0) {
-                let mixer = new THREE.AnimationMixer(models.gus);
-                mixer.clipAction(gltf.animations[0]).play();
-                mixers.push(mixer);
-            }
-            checkLoadingStatus();
-        });
-
-        // 2. FLIP'İ YÜKLE (Solda)
-        loader.load(urls.flip, function(gltf) {
-            models.flip = gltf.scene;
-            models.flip.position.set(-0.38, -0.22, -0.05); // Sol taraf
-            models.flip.scale.set(0.9, 0.9, 0.9);
-            models.flip.rotation.y = 0.2; // Hafif merkeze baksın
-            scene.add(models.flip);
-            if(gltf.animations.length > 0) {
-                let mixer = new THREE.AnimationMixer(models.flip);
-                mixer.clipAction(gltf.animations[0]).play();
-                mixers.push(mixer);
-            }
-            checkLoadingStatus();
-        });
-
-        // 3. SUGAR'I YÜKLE (Sağda)
-        loader.load(urls.sugar, function(gltf) {
-            models.sugar = gltf.scene;
-            models.sugar.position.set(0.38, -0.22, -0.05); // Sağ taraf
-            models.sugar.scale.set(0.9, 0.9, 0.9);
-            models.sugar.rotation.y = -0.2; // Hafif merkeze baksın
-            scene.add(models.sugar);
-            if(gltf.animations.length > 0) {
-                let mixer = new THREE.AnimationMixer(models.sugar);
-                mixer.clipAction(gltf.animations[0]).play();
-                mixers.push(mixer);
-            }
-            checkLoadingStatus();
-        });
-    }
-
-    function checkLoadingStatus() {
-        loadedCount++;
-        if(loadedCount === 3) {
-            document.getElementById('loading-text').style.display = 'none';
-        } else {
-            document.getElementById('loading-text').innerText = `Karakterler Toplanıyor (${loadedCount}/3)...`;
+    function loadPetModel() {
+        if (petModel) {
+            scene.remove(petModel);
+            mixer = null;
         }
+
+        document.getElementById('loading-text').style.display = 'block';
+
+        const loader = new THREE.GLTFLoader();
+        
+        loader.load(urls[currentPet], 
+            function (gltf) {
+                petModel = gltf.scene;
+                
+                // 🎯 Sorunsuz evrensel boyut ve konum hizalaması
+                petModel.position.set(0, -0.25, 0);
+                petModel.scale.set(1.0, 1.0, 1.0);
+                
+                scene.add(petModel);
+                document.getElementById('loading-text').style.display = 'none';
+
+                // Eğer modelde kendi orijinal animasyonu varsa otomatik oynatır
+                if (gltf.animations && gltf.animations.length > 0) {
+                    mixer = new THREE.AnimationMixer(petModel);
+                    mixer.clipAction(gltf.animations[0]).play();
+                }
+            }, 
+            function (xhr) {
+                if(xhr.total > 0) {
+                    document.getElementById('loading-text').innerText = "Yükleniyor: %" + Math.round((xhr.loaded / xhr.total * 100));
+                }
+            }, 
+            function (error) {
+                console.error(error);
+                document.getElementById('loading-text').innerText = "Hata oluştu!";
+            }
+        );
     }
 
-    // Üç karaktere birden aynı anda animasyon yaptırma fonksiyonu!
-    function interactAll(action) {
-        Object.values(models).forEach(model => {
-            if (!model) return;
+    // Etkileşim butonları fonksiyonu
+    function interact(action) {
+        if (!petModel) return;
 
-            if (action === 'feed') {
-                model.position.y += 0.08;
-                setTimeout(() => model.position.y -= 0.08, 200);
-            } 
-            else if (action === 'poke') {
-                model.rotation.z = 0.05;
-                setTimeout(() => model.rotation.z = -0.05, 150);
-                setTimeout(() => model.rotation.z = 0, 300);
-            }
-            else if (action === 'dance') {
-                let startRotation = model.rotation.y;
-                let targetRotation = startRotation + Math.PI * 2;
-                let danceInterval = setInterval(() => {
-                    model.rotation.y += 0.25;
-                    if (model.rotation.y >= targetRotation) {
-                        clearInterval(danceInterval);
-                        model.rotation.y = startRotation; // Eski açısına sabitle
-                    }
-                }, 20);
-            }
-        });
+        if (action === 'feed') {
+            // Havaya zıplama efekti
+            petModel.position.y += 0.08;
+            setTimeout(() => petModel.position.y -= 0.08, 200);
+        } 
+        else if (action === 'poke') {
+            // Sağa sola tatlıca yattırma efekti
+            petModel.rotation.z = 0.06;
+            setTimeout(() => petModel.rotation.z = -0.06, 150);
+            setTimeout(() => petModel.rotation.z = 0, 300);
+        }
+        else if (action === 'dance') {
+            // Kendi etrafında tam tur dönme efekti
+            let targetRotation = petModel.rotation.y + Math.PI * 2;
+            let danceInterval = setInterval(() => {
+                petModel.rotation.y += 0.25;
+                if (petModel.rotation.y >= targetRotation) {
+                    clearInterval(danceInterval);
+                }
+            }, 20);
+        }
     }
 
     function onWindowResize() {
@@ -265,23 +345,15 @@
     function animate() {
         requestAnimationFrame(animate);
         let delta = clock.getDelta();
-        
-        // Aktif olan tüm animasyon mikserlerini güncelle
-        mixers.forEach(mixer => mixer.update(delta));
+        if (mixer) mixer.update(delta);
 
-        // Eğer animasyon dosyası yoksa kendi kendilerine tatlı tatlı sallansınlar
-        if (mixers.length === 0) {
-            let time = Date.now() * 0.0015;
-            if(models.gus) models.gus.rotation.y = Math.sin(time) * 0.04;
-            if(models.flip) models.flip.rotation.y = 0.2 + Math.sin(time + 1) * 0.04;
-            if(models.sugar) models.sugar.rotation.y = -0.2 + Math.sin(time + 2) * 0.04;
+        // Canlılık efekti: Eğer arka planda kendi animasyonu yoksa yavaşça nefes alma sallantısı yapar
+        if (petModel && !mixer) {
+            petModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.04;
         }
 
         renderer.render(scene, camera);
     }
-
-    // Sayfa açıldığında otomatik başlat
-    window.onload = init3D;
 </script>
 </body>
 </html>
