@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Pets 3D - Ultimate Focus</title>
+    <title>My Talking Pets 3D - Real Edition</title>
     <style>
         * {
             box-sizing: border-box;
@@ -37,12 +37,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 30px;
+            gap: 20px;
         }
         #selection-screen h1 {
             font-size: 28px;
             letter-spacing: 2px;
             text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+            margin-bottom: 10px;
         }
         .char-select-btn {
             color: white;
@@ -52,16 +53,20 @@
             font-weight: bold;
             border-radius: 15px;
             cursor: pointer;
-            width: 210px;
+            width: 230px;
             transition: transform 0.1s;
         }
         .char-select-btn.gus {
             background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
             box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
         }
-        .char-select-btn.squeak {
-            background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
-            box-shadow: 0 5px 15px rgba(202, 138, 4, 0.4);
+        .char-select-btn.flip {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            box-shadow: 0 5px 15px rgba(14, 165, 233, 0.4);
+        }
+        .char-select-btn.sugar {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            box-shadow: 0 5px 15px rgba(236, 72, 153, 0.4);
         }
         .char-select-btn:active {
             transform: scale(0.95);
@@ -136,10 +141,11 @@
             transform: translate(-50%, -50%);
             font-size: 16px;
             color: #94a3b8;
-            z-index: 5;
-            background: rgba(15, 23, 42, 0.85);
+            z-index: 105;
+            background: rgba(15, 23, 42, 0.9);
             padding: 15px 30px;
             border-radius: 14px;
+            border: 1px solid #334155;
             pointer-events: none;
             text-align: center;
             display: none;
@@ -153,10 +159,11 @@
     <div id="selection-screen">
         <h1>EVCİL HAYVAN SEÇ</h1>
         <button class="char-select-btn gus" onclick="selectCharacter('gus')">Gus 🐾</button>
-        <button class="char-select-btn squeak" onclick="selectCharacter('squeak')">Squeak 🐹</button>
+        <button class="char-select-btn flip" onclick="selectCharacter('flip')">Flip 🐶</button>
+        <button class="char-select-btn sugar" onclick="selectCharacter('sugar')">Sugar 🐱</button>
     </div>
 
-    <button id="back-btn" onclick="goBack()">⬅ Geri</button>
+    <button id="back-btn" onclick="goBack()">⬅ Değiştir</button>
     <div id="ui-top">🐾 MY TALKING PET 🐾</div>
     
     <div id="loading-text">Model Yükleniyor...</div>
@@ -169,11 +176,17 @@
     </div>
 
 <script>
-    let scene, camera, renderer, mainModel, mixer;
+    let scene, camera, renderer, petModel, houseModel, mixer;
     let clock = new THREE.Clock();
     let currentPet = 'gus';
 
-    const modelUrl = "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/tom_2_pets%20(1).glb";
+    // 🔗 SENİN GÖNDERDİĞİN DOSYALARIN RAW LİNKLERİ
+    const urls = {
+        gus: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_gus.glb",
+        flip: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_flip%20(1).glb",
+        sugar: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_sugar.glb",
+        house: "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/talking_tom_and_friends_2_tom_house.glb"
+    };
 
     function selectCharacter(pet) {
         currentPet = pet;
@@ -181,19 +194,26 @@
         document.getElementById('ui-top').style.display = 'block';
         document.getElementById('ui-bottom').style.display = 'flex';
         document.getElementById('back-btn').style.display = 'block';
-        document.getElementById('ui-top').innerText = pet === 'gus' ? "🐾 MY TALKING GUS 🐾" : "🐹 MY TALKING SQUEAK 🐹";
         
+        // Üst başlık ve buton renklerini seçilen karaktere göre ayarla
+        const uiTop = document.getElementById('ui-top');
         const actionButtons = document.querySelectorAll('.action-btn');
-        if (pet === 'squeak') {
-            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)');
-        } else {
+        
+        if (pet === 'gus') {
+            uiTop.innerText = "🐾 MY TALKING GUS 🐾";
             actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)');
+        } else if (pet === 'flip') {
+            uiTop.innerText = "🐶 MY TALKING FLIP 🐾";
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)');
+        } else if (pet === 'sugar') {
+            uiTop.innerText = "🐱 MY TALKING SUGAR 🐾";
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)');
         }
 
         if (!scene) {
             init3D();
         } else {
-            focusCameraOnCharacter();
+            loadPetModel(); // Sahne zaten varsa sadece karakter modelini değiştir
         }
     }
 
@@ -205,12 +225,13 @@
     }
 
     function init3D() {
-        document.getElementById('loading-text').style.display = 'block';
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
-        // Görüş açısını (FOV) dengeli bir dereceye getirdik (30)
-        camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.01, 1000);
+        // Kamera ayarlarını standart, temiz bir açıya getirdik
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+        camera.position.set(0, 0.1, 1.4);
+        camera.lookAt(0, 0.1, 0);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -218,30 +239,59 @@
         renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(renderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2.6);
+        // Işıklandırma
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
         scene.add(ambientLight);
 
-        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.8);
-        dirLight1.position.set(5, 10, 7);
-        scene.add(dirLight1);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        dirLight.position.set(3, 8, 5);
+        scene.add(dirLight);
+
+        // Önce Tom'un Evini yükleyelim (Arka plan olarak duracak)
+        const loader = new THREE.GLTFLoader();
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('loading-text').innerText = "Ev Yükleniyor...";
+
+        loader.load(urls.house, function(gltf) {
+            houseModel = gltf.scene;
+            // Evi biraz arkaya ve aşağıya konumlandırıyoruz
+            houseModel.position.set(0, -0.6, -1.0);
+            houseModel.scale.set(0.6, 0.6, 0.6);
+            scene.add(houseModel);
+            
+            // Ev yüklendikten sonra seçilen evcil hayvanı yükle
+            loadPetModel();
+        }, undefined, function(err) { console.error("Ev yüklenemedi:", err); loadPetModel(); });
+
+        window.addEventListener('resize', onWindowResize, false);
+        animate();
+    }
+
+    function loadPetModel() {
+        // Eğer önceden yüklenmiş bir pet varsa sahneden sil
+        if (petModel) {
+            scene.remove(petModel);
+            mixer = null;
+        }
+
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('loading-text').innerText = "Karakter Yükleniyor...";
 
         const loader = new THREE.GLTFLoader();
         
-        loader.load(modelUrl, 
+        loader.load(urls[currentPet], 
             function (gltf) {
-                mainModel = gltf.scene;
+                petModel = gltf.scene;
                 
-                // 🛠️ MODEL ÖLÇEĞİNİ KÜÇÜLTTÜK: 1.0'dan 0.85'e çektik ki karakterler ekrana rahat sığsın
-                mainModel.position.set(0, -0.25, 0);
-                mainModel.scale.set(0.85, 0.85, 0.85);
+                // Karakter tam ekranın ortasında ve evin önünde duracak şekilde hizalandı
+                petModel.position.set(0, -0.3, 0.2);
+                petModel.scale.set(1.0, 1.0, 1.0);
                 
-                scene.add(mainModel);
+                scene.add(petModel);
                 document.getElementById('loading-text').style.display = 'none';
 
-                focusCameraOnCharacter();
-
                 if (gltf.animations && gltf.animations.length > 0) {
-                    mixer = new THREE.AnimationMixer(mainModel);
+                    mixer = new THREE.AnimationMixer(petModel);
                     mixer.clipAction(gltf.animations[0]).play();
                 }
             }, 
@@ -251,47 +301,29 @@
                 }
             }, 
             function (error) {
-                console.error(error);
+                console.error("Karakter yükleme hatası:", error);
+                document.getElementById('loading-text').innerText = "Hata oluştu!";
             }
         );
-
-        window.addEventListener('resize', onWindowResize, false);
-        animate();
-    }
-
-    // 🎯 SQUEAK VE GUS'I TAM ORTALAYAN AYARLAR
-    function focusCameraOnCharacter() {
-        if (!mainModel || !camera) return;
-
-        if (currentPet === 'squeak') {
-            // Kamerayı Flip'in yeşil alanından tamamen kurtarmak için sola (-0.38) çektik ve yüksekliği hafifçe kaldırdık (0.02)
-            camera.position.set(-0.38, 0.02, 0.75); 
-            camera.lookAt(-0.38, 0.02, 0);
-        } else {
-            // Gus seçildiğinde tam merkezdeki mor karakteri kocaman gösterir
-            camera.position.set(0.01, 0.01, 0.65); 
-            camera.lookAt(0.01, 0.01, 0);
-        }
-        camera.updateProjectionMatrix();
     }
 
     function interact(action) {
-        if (!mainModel) return;
+        if (!petModel) return;
 
         if (action === 'feed') {
-            mainModel.position.y += 0.05;
-            setTimeout(() => mainModel.position.y -= 0.05, 200);
+            petModel.position.y += 0.08;
+            setTimeout(() => petModel.position.y -= 0.08, 200);
         } 
         else if (action === 'poke') {
-            mainModel.rotation.z = 0.04;
-            setTimeout(() => mainModel.rotation.z = -0.04, 150);
-            setTimeout(() => mainModel.rotation.z = 0, 300);
+            petModel.rotation.z = 0.06;
+            setTimeout(() => petModel.rotation.z = -0.06, 150);
+            setTimeout(() => petModel.rotation.z = 0, 300);
         }
         else if (action === 'dance') {
-            let targetRotation = mainModel.rotation.y + Math.PI * 2;
+            let targetRotation = petModel.rotation.y + Math.PI * 2;
             let danceInterval = setInterval(() => {
-                mainModel.rotation.y += 0.25;
-                if (mainModel.rotation.y >= targetRotation) {
+                petModel.rotation.y += 0.25;
+                if (petModel.rotation.y >= targetRotation) {
                     clearInterval(danceInterval);
                 }
             }, 20);
@@ -309,8 +341,9 @@
         let delta = clock.getDelta();
         if (mixer) mixer.update(delta);
 
-        if (mainModel && !mixer) {
-            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.02;
+        // Kendi etrafında tatlı bir canlılık sallantısı
+        if (petModel && !mixer) {
+            petModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.04;
         }
 
         renderer.render(scene, camera);
