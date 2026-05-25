@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Pets 3D</title>
+    <title>My Talking Pets 3D - Solo Squeak</title>
     <style>
         * {
             box-sizing: border-box;
@@ -25,7 +25,6 @@
             padding: 20px;
         }
         
-        /* Karakter Seçim Ekranı */
         #selection-screen {
             position: absolute;
             top: 0;
@@ -46,7 +45,6 @@
             text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
         }
         .char-select-btn {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
             color: white;
             border: none;
             padding: 15px 40px;
@@ -54,13 +52,16 @@
             font-weight: bold;
             border-radius: 15px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(29, 78, 216, 0.4);
-            width: 200px;
+            width: 210px;
             transition: transform 0.1s;
         }
         .char-select-btn.gus {
             background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
             box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
+        }
+        .char-select-btn.squeak {
+            background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+            box-shadow: 0 5px 15px rgba(202, 138, 4, 0.4);
         }
         .char-select-btn:active {
             transform: scale(0.95);
@@ -151,15 +152,15 @@
 <body>
 
     <div id="selection-screen">
-        <h1>BİR EVCİL HAYVAN SEÇ</h1>
+        <h1>EVCİL HAYVAN SEÇ</h1>
         <button class="char-select-btn gus" onclick="selectCharacter('gus')">Gus 🐾</button>
         <button class="char-select-btn squeak" onclick="selectCharacter('squeak')">Squeak 🐹</button>
     </div>
 
     <button id="back-btn" onclick="goBack()">⬅ Geri</button>
-    <div id="ui-top" id="game-title">🐾 MY TALKING PET 🐾</div>
+    <div id="ui-top">🐾 MY TALKING PET 🐾</div>
     
-    <div id="loading-text">Evcil Hayvanlar Yükleniyor...</div>
+    <div id="loading-text">Model Yükleniyor...</div>
     <div id="canvas-container"></div>
 
     <div id="ui-bottom">
@@ -173,7 +174,6 @@
     let clock = new THREE.Clock();
     let currentPet = 'gus';
 
-    // Yeni paylaştığın toplu pet modeli linki:
     const modelUrl = "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/tom_2_pets%20(1).glb";
 
     function selectCharacter(pet) {
@@ -184,6 +184,14 @@
         document.getElementById('back-btn').style.display = 'block';
         document.getElementById('ui-top').innerText = pet === 'gus' ? "🐾 MY TALKING GUS 🐾" : "🐹 MY TALKING SQUEAK 🐹";
         
+        // Buton renklerini dinamik değiştir
+        const actionButtons = document.querySelectorAll('.action-btn');
+        if (pet === 'squeak') {
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)');
+        } else {
+            actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)');
+        }
+
         if (!scene) {
             init3D();
         } else {
@@ -204,7 +212,7 @@
         scene = new THREE.Scene();
 
         camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 1000);
-        camera.position.set(0, 0.5, 2.5); 
+        camera.position.set(0, 0.4, 2.0); 
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -212,8 +220,7 @@
         renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(renderer.domElement);
 
-        // Işıklandırma ayarları
-        const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.5);
         scene.add(ambientLight);
 
         const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.8);
@@ -228,7 +235,6 @@
                 scene.add(mainModel);
                 document.getElementById('loading-text').style.display = 'none';
 
-                // Modelleri tarayıp isimlerine göre ayıklama yapıyoruz
                 filterCharacter();
 
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -238,12 +244,11 @@
             }, 
             function (xhr) {
                 if(xhr.total > 0) {
-                    document.getElementById('loading-text').innerText = "Model Yükleniyor: %" + Math.round((xhr.loaded / xhr.total * 100));
+                    document.getElementById('loading-text').innerText = "Yükleniyor: %" + Math.round((xhr.loaded / xhr.total * 100));
                 }
             }, 
             function (error) {
                 console.error(error);
-                document.getElementById('loading-text').innerHTML = "Yükleme Hatası!";
             }
         );
 
@@ -251,61 +256,52 @@
         animate();
     }
 
-    // 🔥 2. YÖNTEM: MODEL İÇİNDEKİ NESNELERİ GİZLEME / GÖSTERME VE MERKEZLEME FİLTRESİ
+    // 🎯 REPO/KOORDİNAT TABANLI GELİŞMİŞ FİLTRELEME
     function filterCharacter() {
         if (!mainModel) return;
 
-        let activeMesh = null;
-
-        mainModel.traverse(function (child) {
-            if (child.isMesh || child.type === "Group") {
-                let name = child.name.toLowerCase();
-                
-                // Eğer Gus seçildiyse içinde 'squeak' geçen parçaları gizle, 'gus' geçenleri göster
-                if (currentPet === 'gus') {
-                    if (name.includes('squeak')) child.visible = false;
-                    if (name.includes('gus')) {
-                        child.visible = true;
-                        activeMesh = child;
-                    }
-                } 
-                // Squeak seçildiyse tam tersini yap
-                else if (currentPet === 'squeak') {
-                    if (name.includes('gus')) child.visible = false;
-                    if (name.includes('squeak')) {
-                        child.visible = true;
-                        activeMesh = child;
-                    }
+        // Modelin ana çocuk nesnelerini bulup dünya konumlarına göre süzüyoruz
+        mainModel.children.forEach(function (child) {
+            // Squeak en solda olduğu için X pozisyonu negatiftir (0'dan küçüktür)
+            // Gus ise tam ortalarda veya sağ taraftadır
+            if (currentPet === 'squeak') {
+                // Sadece en soldaki nesneyi (Squeak grubunu) açık bırak, diğerlerini gizle
+                if (child.position.x < -0.3) {
+                    child.visible = true;
+                    // Squeak'i ekranın tam ortasına (0 noktasına) kaydırıyoruz
+                    child.position.set(0, -0.2, 0); 
+                    child.scale.set(1.5, 1.5, 1.5);
+                } else {
+                    child.visible = false;
+                }
+            } 
+            else if (currentPet === 'gus') {
+                // Gus seçildiğinde orijinal düzenine veya orta nesneye odaklan
+                if (child.position.x >= -0.3 && child.position.x <= 0.3) {
+                    child.visible = true;
+                    child.position.set(0, -0.2, 0);
+                    child.scale.set(1.5, 1.5, 1.5);
+                } else {
+                    child.visible = false;
                 }
             }
         });
 
-        // Seçilen karakteri ekranın tam ortasına otomatik hizala ve sığdır
-        const box = new THREE.Box3().setFromObject(mainModel);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-        
-        mainModel.position.x += (mainModel.position.x - center.x);
-        mainModel.position.y += (mainModel.position.y - center.y) - 0.2;
-        mainModel.position.z += (mainModel.position.z - center.z);
-        
-        const maxDim = Math.max(size.x, size.y, size.z);
-        if (maxDim > 0) {
-            const scale = 1.4 / maxDim;
-            mainModel.scale.set(scale, scale, scale);
-        }
+        // Kamerayı tam merkeze sabitleyelim
+        camera.position.set(0, 0.4, 1.8);
+        camera.lookAt(0, 0.2, 0);
     }
 
     function interact(action) {
         if (!mainModel) return;
 
         if (action === 'feed') {
-            mainModel.position.y += 0.2;
-            setTimeout(() => mainModel.position.y -= 0.2, 200);
+            mainModel.position.y += 0.15;
+            setTimeout(() => mainModel.position.y -= 0.15, 200);
         } 
         else if (action === 'poke') {
-            mainModel.rotation.z = 0.2;
-            setTimeout(() => mainModel.rotation.z = -0.2, 150);
+            mainModel.rotation.z = 0.15;
+            setTimeout(() => mainModel.rotation.z = -0.15, 150);
             setTimeout(() => mainModel.rotation.z = 0, 300);
         }
         else if (action === 'dance') {
@@ -331,7 +327,7 @@
         if (mixer) mixer.update(delta);
 
         if (mainModel && !mixer) {
-            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.15;
+            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.1;
         }
 
         renderer.render(scene, camera);
