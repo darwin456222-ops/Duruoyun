@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Pets 3D - Perfect Zoom</title>
+    <title>My Talking Pets 3D - Ultimate Focus</title>
     <style>
         * {
             box-sizing: border-box;
@@ -209,8 +209,8 @@
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
-        // FOV değerini 18 yaparak kameraya adeta bir sniper/teleskop gibi muazzam bir zoom gücü verdik!
-        camera = new THREE.PerspectiveCamera(18, window.innerWidth / window.innerHeight, 0.01, 1000);
+        // Görüş açısını (FOV) dengeli bir dereceye getirdik (30)
+        camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.01, 1000);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -231,9 +231,9 @@
             function (gltf) {
                 mainModel = gltf.scene;
                 
-                // Modeli tam merkeze ve ideal bir yüksekliğe yerleştiriyoruz
-                mainModel.position.set(0, -0.22, 0);
-                mainModel.scale.set(1.0, 1.0, 1.0);
+                // 🛠️ MODEL ÖLÇEĞİNİ KÜÇÜLTTÜK: 1.0'dan 0.85'e çektik ki karakterler ekrana rahat sığsın
+                mainModel.position.set(0, -0.25, 0);
+                mainModel.scale.set(0.85, 0.85, 0.85);
                 
                 scene.add(mainModel);
                 document.getElementById('loading-text').style.display = 'none';
@@ -259,18 +259,18 @@
         animate();
     }
 
-    // 🎯 SADECE VE SADECE TURUNCU SQUEAK'E ODAKLANAN YENİ KAMERA MATRİSİ
+    // 🎯 SQUEAK VE GUS'I TAM ORTALAYAN AYARLAR
     function focusCameraOnCharacter() {
         if (!mainModel || !camera) return;
 
         if (currentPet === 'squeak') {
-            // Kamerayı Flip'in sağından tamamen uzaklaştırıp en soldaki Squeak'in tam yüz hizasına (-0.26, -0.05) kilitledik!
-            camera.position.set(-0.26, -0.05, 0.9); 
-            camera.lookAt(-0.26, -0.05, 0);
+            // Kamerayı Flip'in yeşil alanından tamamen kurtarmak için sola (-0.38) çektik ve yüksekliği hafifçe kaldırdık (0.02)
+            camera.position.set(-0.38, 0.02, 0.75); 
+            camera.lookAt(-0.38, 0.02, 0);
         } else {
-            // Gus seçildiğinde kamerayı tam ortadaki mor sevimli canavara odaklar!
-            camera.position.set(-0.002, -0.05, 0.9); 
-            camera.lookAt(-0.002, -0.05, 0);
+            // Gus seçildiğinde tam merkezdeki mor karakteri kocaman gösterir
+            camera.position.set(0.01, 0.01, 0.65); 
+            camera.lookAt(0.01, 0.01, 0);
         }
         camera.updateProjectionMatrix();
     }
