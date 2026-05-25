@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Gus 3D - Fixed Link</title>
+    <title>My Talking Pets 3D</title>
     <style>
         * {
             box-sizing: border-box;
@@ -24,6 +24,48 @@
             height: 100vh;
             padding: 20px;
         }
+        
+        /* Karakter Seçim Ekranı */
+        #selection-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+        }
+        #selection-screen h1 {
+            font-size: 28px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+        }
+        .char-select-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(29, 78, 216, 0.4);
+            width: 200px;
+            transition: transform 0.1s;
+        }
+        .char-select-btn.gus {
+            background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+            box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4);
+        }
+        .char-select-btn:active {
+            transform: scale(0.95);
+        }
+
         #ui-top {
             background: rgba(15, 23, 42, 0.7);
             padding: 10px 25px;
@@ -35,6 +77,7 @@
             letter-spacing: 1px;
             z-index: 10;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: none;
         }
         #canvas-container {
             position: absolute;
@@ -45,7 +88,7 @@
             z-index: 1;
         }
         #ui-bottom {
-            display: flex;
+            display: none;
             gap: 20px;
             z-index: 10;
             width: 100%;
@@ -72,6 +115,19 @@
         .action-btn:active {
             transform: scale(0.9);
         }
+        #back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            z-index: 20;
+            display: none;
+        }
         #loading-text {
             position: absolute;
             top: 50%;
@@ -86,6 +142,7 @@
             border: 1px solid #334155;
             pointer-events: none;
             text-align: center;
+            display: none;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -93,9 +150,16 @@
 </head>
 <body>
 
-    <div id="ui-top">🐾 MY TALKING GUS 🐾</div>
+    <div id="selection-screen">
+        <h1>BİR EVCİL HAYVAN SEÇ</h1>
+        <button class="char-select-btn gus" onclick="selectCharacter('gus')">Gus 🐾</button>
+        <button class="char-select-btn squeak" onclick="selectCharacter('squeak')">Squeak 🐹</button>
+    </div>
+
+    <button id="back-btn" onclick="goBack()">⬅ Geri</button>
+    <div id="ui-top" id="game-title">🐾 MY TALKING PET 🐾</div>
     
-    <div id="loading-text">Gus Buluttan Geliyor...</div>
+    <div id="loading-text">Evcil Hayvanlar Yükleniyor...</div>
     <div id="canvas-container"></div>
 
     <div id="ui-bottom">
@@ -105,13 +169,37 @@
     </div>
 
 <script>
-    let scene, camera, renderer, gusModel, mixer;
+    let scene, camera, renderer, mainModel, mixer;
     let clock = new THREE.Clock();
+    let currentPet = 'gus';
 
-    // Senin verdiğin linkin doğrudan tarayıcı tarafından okunabilen adresi:
-    const modelUrl = "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/my_talking_tom_2_gus.glb";
+    // Yeni paylaştığın toplu pet modeli linki:
+    const modelUrl = "https://raw.githubusercontent.com/darwin456222-ops/Duruoyun/main/tom_2_pets%20(1).glb";
+
+    function selectCharacter(pet) {
+        currentPet = pet;
+        document.getElementById('selection-screen').style.display = 'none';
+        document.getElementById('ui-top').style.display = 'block';
+        document.getElementById('ui-bottom').style.display = 'flex';
+        document.getElementById('back-btn').style.display = 'block';
+        document.getElementById('ui-top').innerText = pet === 'gus' ? "🐾 MY TALKING GUS 🐾" : "🐹 MY TALKING SQUEAK 🐹";
+        
+        if (!scene) {
+            init3D();
+        } else {
+            filterCharacter();
+        }
+    }
+
+    function goBack() {
+        document.getElementById('selection-screen').style.display = 'flex';
+        document.getElementById('ui-top').style.display = 'none';
+        document.getElementById('ui-bottom').style.display = 'none';
+        document.getElementById('back-btn').style.display = 'none';
+    }
 
     function init3D() {
+        document.getElementById('loading-text').style.display = 'block';
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
@@ -124,7 +212,7 @@
         renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(renderer.domElement);
 
-        // Işıklandırma Güçlendirildi
+        // Işıklandırma ayarları
         const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
         scene.add(ambientLight);
 
@@ -132,48 +220,30 @@
         dirLight1.position.set(5, 10, 7);
         scene.add(dirLight1);
 
-        const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.2);
-        dirLight2.position.set(-5, 5, -5);
-        scene.add(dirLight2);
-
         const loader = new THREE.GLTFLoader();
         
         loader.load(modelUrl, 
             function (gltf) {
-                gusModel = gltf.scene;
-                
-                // Otomatik boyutlandırma ve merkezleme
-                const box = new THREE.Box3().setFromObject(gusModel);
-                const size = box.getSize(new THREE.Vector3());
-                const center = box.getCenter(new THREE.Vector3());
-                
-                gusModel.position.x += (gusModel.position.x - center.x);
-                gusModel.position.y += (gusModel.position.y - center.y) - 0.2;
-                gusModel.position.z += (gusModel.position.z - center.z);
-                
-                const maxDim = Math.max(size.x, size.y, size.z);
-                if (maxDim > 0) {
-                    const scale = 1.4 / maxDim;
-                    gusModel.scale.set(scale, scale, scale);
-                }
-
-                scene.add(gusModel);
+                mainModel = gltf.scene;
+                scene.add(mainModel);
                 document.getElementById('loading-text').style.display = 'none';
 
-                // Dosya içindeki orijinal iskelet animasyonlarını oynatır
+                // Modelleri tarayıp isimlerine göre ayıklama yapıyoruz
+                filterCharacter();
+
                 if (gltf.animations && gltf.animations.length > 0) {
-                    mixer = new THREE.AnimationMixer(gusModel);
+                    mixer = new THREE.AnimationMixer(mainModel);
                     mixer.clipAction(gltf.animations[0]).play();
                 }
             }, 
             function (xhr) {
                 if(xhr.total > 0) {
-                    document.getElementById('loading-text').innerText = "Gus Yükleniyor: %" + Math.round((xhr.loaded / xhr.total * 100));
+                    document.getElementById('loading-text').innerText = "Model Yükleniyor: %" + Math.round((xhr.loaded / xhr.total * 100));
                 }
             }, 
             function (error) {
                 console.error(error);
-                document.getElementById('loading-text').innerHTML = "Yükleme Hatası!<br><span style='font-size:12px; color:#ef4444;'>Lütfen internetinizi ve linki kontrol edin.</span>";
+                document.getElementById('loading-text').innerHTML = "Yükleme Hatası!";
             }
         );
 
@@ -181,24 +251,68 @@
         animate();
     }
 
-    // Etkileşim Buton Komutları
+    // 🔥 2. YÖNTEM: MODEL İÇİNDEKİ NESNELERİ GİZLEME / GÖSTERME VE MERKEZLEME FİLTRESİ
+    function filterCharacter() {
+        if (!mainModel) return;
+
+        let activeMesh = null;
+
+        mainModel.traverse(function (child) {
+            if (child.isMesh || child.type === "Group") {
+                let name = child.name.toLowerCase();
+                
+                // Eğer Gus seçildiyse içinde 'squeak' geçen parçaları gizle, 'gus' geçenleri göster
+                if (currentPet === 'gus') {
+                    if (name.includes('squeak')) child.visible = false;
+                    if (name.includes('gus')) {
+                        child.visible = true;
+                        activeMesh = child;
+                    }
+                } 
+                // Squeak seçildiyse tam tersini yap
+                else if (currentPet === 'squeak') {
+                    if (name.includes('gus')) child.visible = false;
+                    if (name.includes('squeak')) {
+                        child.visible = true;
+                        activeMesh = child;
+                    }
+                }
+            }
+        });
+
+        // Seçilen karakteri ekranın tam ortasına otomatik hizala ve sığdır
+        const box = new THREE.Box3().setFromObject(mainModel);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        
+        mainModel.position.x += (mainModel.position.x - center.x);
+        mainModel.position.y += (mainModel.position.y - center.y) - 0.2;
+        mainModel.position.z += (mainModel.position.z - center.z);
+        
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+            const scale = 1.4 / maxDim;
+            mainModel.scale.set(scale, scale, scale);
+        }
+    }
+
     function interact(action) {
-        if (!gusModel) return;
+        if (!mainModel) return;
 
         if (action === 'feed') {
-            gusModel.position.y += 0.2;
-            setTimeout(() => gusModel.position.y -= 0.2, 200);
+            mainModel.position.y += 0.2;
+            setTimeout(() => mainModel.position.y -= 0.2, 200);
         } 
         else if (action === 'poke') {
-            gusModel.rotation.z = 0.2;
-            setTimeout(() => gusModel.rotation.z = -0.2, 150);
-            setTimeout(() => gusModel.rotation.z = 0, 300);
+            mainModel.rotation.z = 0.2;
+            setTimeout(() => mainModel.rotation.z = -0.2, 150);
+            setTimeout(() => mainModel.rotation.z = 0, 300);
         }
         else if (action === 'dance') {
-            let targetRotation = gusModel.rotation.y + Math.PI * 2;
+            let targetRotation = mainModel.rotation.y + Math.PI * 2;
             let danceInterval = setInterval(() => {
-                gusModel.rotation.y += 0.25;
-                if (gusModel.rotation.y >= targetRotation) {
+                mainModel.rotation.y += 0.25;
+                if (mainModel.rotation.y >= targetRotation) {
                     clearInterval(danceInterval);
                 }
             }, 20);
@@ -216,15 +330,12 @@
         let delta = clock.getDelta();
         if (mixer) mixer.update(delta);
 
-        // Özel bir animasyon yoksa Gus hafifçe sağa sola salınarak nefes alma efekti yapar
-        if (gusModel && !mixer) {
-            gusModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.15;
+        if (mainModel && !mixer) {
+            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.15;
         }
 
         renderer.render(scene, camera);
     }
-
-    window.onload = init3D;
 </script>
 </body>
 </html>
