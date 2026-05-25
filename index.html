@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Pets 3D - Super Zoom</title>
+    <title>My Talking Pets 3D - Camera Adjust</title>
     <style>
         * {
             box-sizing: border-box;
@@ -63,9 +63,6 @@
             background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
             box-shadow: 0 5px 15px rgba(202, 138, 4, 0.4);
         }
-        .char-select-btn:active {
-            transform: scale(0.95);
-        }
 
         #ui-top {
             background: rgba(15, 23, 42, 0.7);
@@ -95,7 +92,7 @@
             width: 100%;
             max-width: 400px;
             justify-content: center;
-            margin-bottom: 25px;
+            margin-bottom: 5px;
         }
         .action-btn {
             background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
@@ -105,17 +102,39 @@
             border-radius: 50%;
             font-size: 26px;
             cursor: pointer;
-            box-shadow: 0 8px 20px rgba(124, 58, 237, 0.4);
-            transition: transform 0.1s;
             width: 65px;
             height: 65px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .action-btn:active {
-            transform: scale(0.9);
+        
+        /* 🎛️ KAMERA AYAR PANELİ */
+        #camera-controller {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 90%;
+            max-width: 320px;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 10px 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,255,255,0.1);
+            z-index: 20;
+            margin-bottom: 15px;
         }
+        #camera-controller label {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        #cameraSlider {
+            width: 100%;
+            accent-color: #eab308;
+            cursor: pointer;
+        }
+
         #back-btn {
             position: absolute;
             top: 20px;
@@ -140,7 +159,6 @@
             background: rgba(15, 23, 42, 0.85);
             padding: 15px 30px;
             border-radius: 14px;
-            border: 1px solid #334155;
             pointer-events: none;
             text-align: center;
             display: none;
@@ -163,6 +181,11 @@
     <div id="loading-text">Model Yükleniyor...</div>
     <div id="canvas-container"></div>
 
+    <div id="camera-controller">
+        <label id="slider-label">Squeak'i Bulmak İçin Sağa/Sola Kaydır 👇</label>
+        <input type="range" id="cameraSlider" min="-1.5" max="1.5" step="0.02" value="-0.65" oninput="manualCameraAdjust(this.value)">
+    </div>
+
     <div id="ui-bottom">
         <button class="action-btn" onclick="interact('feed')">🍖</button>
         <button class="action-btn" onclick="interact('poke')">👉</button>
@@ -182,19 +205,26 @@
         document.getElementById('ui-top').style.display = 'block';
         document.getElementById('ui-bottom').style.display = 'flex';
         document.getElementById('back-btn').style.display = 'block';
+        document.getElementById('camera-controller').style.display = 'flex';
         document.getElementById('ui-top').innerText = pet === 'gus' ? "🐾 MY TALKING GUS 🐾" : "🐹 MY TALKING SQUEAK 🐹";
         
+        const slider = document.getElementById('cameraSlider');
         const actionButtons = document.querySelectorAll('.action-btn');
+        
         if (pet === 'squeak') {
+            slider.style.accentColor = '#eab308';
+            slider.value = "-0.3"; // Squeak'i aramak için ideal başlangıç noktası
             actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)');
         } else {
+            slider.style.accentColor = '#a855f7';
+            slider.value = "0.02"; // Gus için tam merkez
             actionButtons.forEach(btn => btn.style.background = 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)');
         }
 
         if (!scene) {
             init3D();
         } else {
-            focusCameraOnCharacter();
+            manualCameraAdjust(slider.value);
         }
     }
 
@@ -203,6 +233,7 @@
         document.getElementById('ui-top').style.display = 'none';
         document.getElementById('ui-bottom').style.display = 'none';
         document.getElementById('back-btn').style.display = 'none';
+        document.getElementById('camera-controller').style.display = 'none';
     }
 
     function init3D() {
@@ -210,8 +241,8 @@
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
-        // Görüş açısını (FOV) 35 yaparak kameraya kendiliğinden bir odaklama/zoom kazandırdık
-        camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.01, 1000);
+        // Görüş açısını (FOV) 25 yaptık, böylece çok güçlü bir yakınlaştırma (Zoom) kazandık
+        camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 0.01, 1000);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -232,14 +263,15 @@
             function (gltf) {
                 mainModel = gltf.scene;
                 
-                // Ana model grubunu tam merkezde konumlandırıyoruz
-                mainModel.position.set(0, -0.3, 0);
+                // Bütün grubu hafif aşağı alıyoruz ki butonlara basarken net gözüksünler
+                mainModel.position.set(0, -0.28, 0);
                 mainModel.scale.set(1.0, 1.0, 1.0);
                 
                 scene.add(mainModel);
                 document.getElementById('loading-text').style.display = 'none';
 
-                focusCameraOnCharacter();
+                // Seçilen ilk değere göre kamerayı kitle
+                manualCameraAdjust(document.getElementById('cameraSlider').value);
 
                 if (gltf.animations && gltf.animations.length > 0) {
                     mixer = new THREE.AnimationMixer(mainModel);
@@ -260,22 +292,16 @@
         animate();
     }
 
-    // 🎯 SENİN FİKRİN: RESMİ KÜÇÜLTEREK/YAKLAŞTIRARAK SADECE SQUEAK'E ODAKLANMA
-    function focusCameraOnCharacter() {
-        if (!mainModel || !camera) return;
+    // 🎯 SENİN FİKRİN + EL KONTROLÜ: SLIDER KAYDIRDIKÇA KAMERA SQUEAK'E DOĞRU KAYAR
+    function manualCameraAdjust(xPosition) {
+        if (!camera) return;
 
-        if (currentPet === 'squeak') {
-            // Görüş açısını iyice daraltıp (Zoom in), kamerayı tam Squeak'in koordinatına (X: -0.68) kilitliyoruz
-            camera.fov = 28; 
-            camera.position.set(-0.68, 0.05, 0.8); 
-            camera.lookAt(-0.68, 0.05, 0);
-        } else {
-            // Gus seçildiğinde kamerayı merkeze (X: 0.02) geri çekiyoruz
-            camera.fov = 32;
-            camera.position.set(0.02, -0.02, 0.8); 
-            camera.lookAt(0.02, -0.02, 0);
-        }
-        // Kamera değişikliklerinin ekrana yansıması için matrisi güncelliyoruz
+        let numX = parseFloat(xPosition);
+        
+        // Kamera X ekseninde çubuğa göre tam milimetrik hareket eder
+        camera.position.set(numX, 0.05, 0.85); 
+        camera.lookAt(numX, 0.05, 0);
+        
         camera.updateProjectionMatrix();
     }
 
