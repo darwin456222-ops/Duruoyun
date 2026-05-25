@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>My Talking Pets 3D - Camera Focus</title>
+    <title>My Talking Pets 3D - Super Zoom</title>
     <style>
         * {
             box-sizing: border-box;
@@ -210,7 +210,8 @@
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
 
-        camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 1000);
+        // Görüş açısını (FOV) 35 yaparak kameraya kendiliğinden bir odaklama/zoom kazandırdık
+        camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.01, 1000);
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -231,14 +232,13 @@
             function (gltf) {
                 mainModel = gltf.scene;
                 
-                // Modeli tam ortalayalım
-                mainModel.position.set(0, -0.4, 0);
-                mainModel.scale.set(1.1, 1.1, 1.1);
+                // Ana model grubunu tam merkezde konumlandırıyoruz
+                mainModel.position.set(0, -0.3, 0);
+                mainModel.scale.set(1.0, 1.0, 1.0);
                 
                 scene.add(mainModel);
                 document.getElementById('loading-text').style.display = 'none';
 
-                // Kamerayı seçilen karaktere göre konumlandır
                 focusCameraOnCharacter();
 
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -260,31 +260,35 @@
         animate();
     }
 
-    // 🎯 YENİ STRATEJİ: KAMERAYI KARAKTERE ODAKLAMA FONKSİYONU
+    // 🎯 SENİN FİKRİN: RESMİ KÜÇÜLTEREK/YAKLAŞTIRARAK SADECE SQUEAK'E ODAKLANMA
     function focusCameraOnCharacter() {
-        if (!mainModel) return;
+        if (!mainModel || !camera) return;
 
         if (currentPet === 'squeak') {
-            // Squeak en solda olduğu için kamerayı sola (-0.65) kaydırıp yaklaştırıyoruz
-            camera.position.set(-0.62, 0.0, 0.8); 
-            camera.lookAt(-0.62, 0.0, 0);
+            // Görüş açısını iyice daraltıp (Zoom in), kamerayı tam Squeak'in koordinatına (X: -0.68) kilitliyoruz
+            camera.fov = 28; 
+            camera.position.set(-0.68, 0.05, 0.8); 
+            camera.lookAt(-0.68, 0.05, 0);
         } else {
-            // Gus tam ortada olduğu için kamerayı merkeze (0) hizalıyoruz
+            // Gus seçildiğinde kamerayı merkeze (X: 0.02) geri çekiyoruz
+            camera.fov = 32;
             camera.position.set(0.02, -0.02, 0.8); 
             camera.lookAt(0.02, -0.02, 0);
         }
+        // Kamera değişikliklerinin ekrana yansıması için matrisi güncelliyoruz
+        camera.updateProjectionMatrix();
     }
 
     function interact(action) {
         if (!mainModel) return;
 
         if (action === 'feed') {
-            mainModel.position.y += 0.1;
-            setTimeout(() => mainModel.position.y -= 0.1, 200);
+            mainModel.position.y += 0.08;
+            setTimeout(() => mainModel.position.y -= 0.08, 200);
         } 
         else if (action === 'poke') {
-            mainModel.rotation.z = 0.08;
-            setTimeout(() => mainModel.rotation.z = -0.08, 150);
+            mainModel.rotation.z = 0.05;
+            setTimeout(() => mainModel.rotation.z = -0.05, 150);
             setTimeout(() => mainModel.rotation.z = 0, 300);
         }
         else if (action === 'dance') {
@@ -309,9 +313,8 @@
         let delta = clock.getDelta();
         if (mixer) mixer.update(delta);
 
-        // Karakterlerin kendi etrafında hafif sallanma animasyonu
         if (mainModel && !mixer) {
-            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.05;
+            mainModel.rotation.y = Math.sin(Date.now() * 0.0015) * 0.03;
         }
 
         renderer.render(scene, camera);
