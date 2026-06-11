@@ -2,492 +2,206 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Pets: Subway Run 3D - Coins Update</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gus ile Bulmaca Macerası</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0; padding: 0;
-            user-select: none; -webkit-user-select: none;
-            touch-action: none;
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
         }
-        body { background: #050b14; overflow: hidden; font-family: Arial, sans-serif; height: 100vh; }
-        #ui {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8); padding: 10px 25px; border-radius: 20px;
-            border: 2px solid #a855f7; color: #fff; font-weight: bold; font-size: 18px; z-index: 10;
-            text-align: center; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+        /* 3DS Çift Ekran Kasası Tasarımı */
+        #game-container {
+            width: 400px;
+            height: 700px;
+            background: #333;
+            border: 12px solid #222;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        #gameover-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(5, 11, 20, 0.95); display: none; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 20; color: #ef4444;
+        /* Üst Ekran: 3D Gus Modeli */
+        #top-screen {
+            flex: 1;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            border-bottom: 8px solid #222;
+            position: relative;
         }
-        #restart-btn {
-            margin-top: 20px; padding: 12px 25px; background: #a855f7; color: #fff;
-            border: none; border-radius: 10px; font-size: 16px; font-weight: bold;
+        /* Alt Ekran: Fizik tabanlı oyun alanı */
+        #bottom-screen {
+            flex: 1;
+            background-color: #fff7e6;
+            position: relative;
+        }
+        .screen-label {
+            position: absolute;
+            top: 5px;
+            left: 10px;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #bottom-screen .screen-label {
+            color: rgba(0,0,0,0.4);
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 </head>
 <body>
 
-    <div id="ui">SKOR: <span id="score-text">0</span></div>
-
-    <div id="gameover-screen">
-        <h1>OYUN BİTTİ</h1>
-        <p style="color: #fff; margin-top: 10px;">Metrodaki engele çarptın!</p>
-        <button id="restart-btn" onclick="resetGame()">YENİDEN DENE</button>
+    <div id="game-container">
+        <div id="top-screen">
+            <span class="screen-label">GUS CAM</span>
+        </div>
+        
+        <div id="bottom-screen">
+            <span class="screen-label">DOKUNMATİK EKRAN</span>
+        </div>
     </div>
 
-<script>
-    let score = 0;
-    let gameOver = false;
-    let currentLane = 0; // -1: Sol, 0: Orta, 1: Sağ
-    const laneWidth = 3;
-    let obstacles = [];
-    let coins = [];
-    let gameSpeed = 0.38;
-    let spawnTimer = 0;
-
-    // --- THREE.JS KURULUMU ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x05070f);
-    scene.fog = new THREE.FogExp2(0x05070f, 0.025);
-
-    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Işıkları Güçlendirdik (Modelin karanlıkta kalmaması için)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(0, 20, 15);
-    scene.add(dirLight);
-
-    // --- METRO YOLU ---
-    const roadGeo = new THREE.BoxGeometry(10, 0.1, 1000);
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
-    const road = new THREE.Mesh(roadGeo, roadMat);
-    road.position.z = -450;
-    scene.add(road);
-
-    // Mor Neon Şeritler
-    for(let i = -1; i <= 1; i += 2) {
-        const lineGeo = new THREE.BoxGeometry(0.15, 0.15, 1000);
-        const lineMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
-        const line = new THREE.Mesh(lineGeo, lineMat);
-        line.position.set(i * (laneWidth * 1.5), 0.05, -450);
-        scene.add(line);
-    }
-
-    // --- 🎭 OYUNCU GRUBU VE AYARI ---
-    let playerGroup = new THREE.Group();
-    // Kameranın tam önünde rahatça görebilmek için Z pozisyonunu -6 yaptık
-    playerGroup.position.set(0, 0.6, -6); 
-    scene.add(playerGroup);
-
-    // Geçici Parlak Küre (Model yüklenene kadar yedek olarak durur)
-    const placeholderGeo = new THREE.SphereGeometry(0.7, 32, 32);
-    const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, emissive: 0x00ff66, emissiveIntensity: 0.3 });
-    let placeholder = new THREE.Mesh(placeholderGeo, placeholderMat);
-    playerGroup.add(placeholder);
-
-    // GLTF Model Yükleyici
-    const loader = new THREE.GLTFLoader();
-    loader.load('my_talking_tom_2_gus.glb', function(gltf) {
-        playerGroup.remove(placeholder); // Model gelince yedeği sil
-        let model = gltf.scene;
-        model.scale.set(1.2, 1.2, 1.2); // Boyutu biraz büyüttük
-        model.rotation.y = Math.PI; // Kameraya doğru dönmesi için döndürdük
-        playerGroup.add(model);
-        console.log("Gus Modeli Aktif!");
-    }, undefined, function(err) {
-        console.log("GLB dosyası okunurken geçici yeşil küre devrede kalıyor.");
-    });
-
-    // 🎥 Kamera Açısını Tam Arkaya Sabitledik
-    camera.position.set(0, 3.8, -1.5);
-    camera.lookAt(0, 1, -12);
-
-    // --- MOBİL SWIPE KONTROLÜ ---
-    let touchStartX = 0;
-    window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; });
-    window.addEventListener("touchmove", (e) => {
-        if (gameOver) return;
-        let touchEndX = e.touches[0].clientX;
-        let diffX = touchEndX - touchStartX;
-
-        if (Math.abs(diffX) > 30) {
-            if (diffX > 0 && currentLane < 1) {
-                currentLane++;
-                touchStartX = touchEndX;
-            } else if (diffX < 0 && currentLane > -1) {
-                currentLane--;
-                touchStartX = touchEndX;
-            }
-        }
-    });
-
-    // --- ENGEL VE ALTIN ÜRETİMİ ---
-    function spawnElements() {
-        let randomLane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+    <script>
+        // --- 1. ÜST EKRAN: THREE.JS İLE 3D GUS AYARLARI ---
+        const topScreen = document.getElementById('top-screen');
+        const scene = new THREE.Scene();
         
-        // %60 ihtimalle Engel, %40 ihtimalle Altın Parası çıksın
-        if(Math.random() > 0.4) {
-            // ENGELLER
-            const obsGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
-            const obsMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 });
-            const obs = new THREE.Mesh(obsGeo, obsMat);
-            obs.position.set(randomLane * laneWidth, 0.8, -120);
-            scene.add(obs);
-            obstacles.push(obs);
-        } else {
-            // ALTIN PARALAR (Dönen İnce Silindirler)
-            const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
-            const coinMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8, roughness: 0.2 });
-            const coin = new THREE.Mesh(coinGeo, coinMat);
-            coin.rotation.x = Math.PI / 2; // Dik durması için
-            coin.position.set(randomLane * laneWidth, 0.8, -120);
-            scene.add(coin);
-            coins.push(coin);
-        }
-    }
+        // Kamera ve Renderer
+        const camera = new THREE.PerspectiveCamera(45, topScreen.clientWidth / topScreen.clientHeight, 0.1, 1000);
+        camera.position.set(0, 1.2, 3); // Kamerayı Gus'ın yüz hizasına göre ayarlarız
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(topScreen.clientWidth, topScreen.clientHeight);
+        topScreen.appendChild(renderer.domElement);
 
-    // --- ANA OYUN DÖNGÜSÜ ---
-    function animate() {
-        if (gameOver) return;
+        // Işıklandırma
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(5, 10, 7);
+        scene.add(directionalLight);
 
-        requestAnimationFrame(animate);
+        // Gus Modelini Yükleme
+        let mixer; // Animasyonları kontrol etmek için
+        let gusModel;
+        const loader = new THREE.GLTFLoader();
+        
+        // Dosya ismi senin yüklediğin gibi "my_talking_tom_2_gus.glb"
+        loader.load('my_talking_tom_2_gus.glb', function(gltf) {
+            gusModel = gltf.scene;
+            gusModel.scale.set(1, 1, 1); // Gerekirse model boyutunu buradan büyütüp küçültebiliriz
+            gusModel.position.set(0, 0, 0);
+            scene.add(gusModel);
 
-        // Şerit değiştirme geçiş yumuşatması (Lerp)
-        let targetX = currentLane * laneWidth;
-        playerGroup.position.x += (targetX - playerGroup.position.x) * 0.25;
+            // Eğer modelin içinde hazır animasyonlar varsa oynatmak için:
+            if (gltf.animations && gltf.animations.length > 0) {
+                mixer = new THREE.AnimationMixer(gusModel);
+                // İlk animasyonu (muhtemelen Idle/Bekleme) varsayılan olarak oynatıyoruz
+                const action = mixer.clipAction(gltf.animations[0]);
+                action.play();
+            }
+        }, undefined, function(error) {
+            console.error('Model yüklenirken hata oluştu:', error);
+        });
 
-        // Üretim sayacı
-        spawnTimer++;
-        if(spawnTimer > 30) {
-            spawnElements();
-            spawnTimer = 0;
-            gameSpeed += 0.003; // Gitgide hızlanma
-        }
+        // Üst Ekran Animasyon Döngüsü
+        const clock = new THREE.Clock();
+        function animateTopScreen() {
+            requestAnimationFrame(animateTopScreen);
+            
+            const delta = clock.getDelta();
+            if (mixer) mixer.update(delta);
 
-        // 1. Engelleri yönet ve Çarpışma Kontrolü yap
-        for(let i = obstacles.length - 1; i >= 0; i--) {
-            let o = obstacles[i];
-            o.position.z += gameSpeed;
-
-            let playerBox = new THREE.Box3().setFromObject(playerGroup);
-            let obstacleBox = new THREE.Box3().setFromObject(o);
-
-            if(playerBox.intersectsBox(obstacleBox)) {
-                gameOver = true;
-                document.getElementById("gameover-screen").style.display = "flex";
+            // Model yüklenirse kendi ekseninde hafifçe nefes alıyor gibi sallanma efekti (Test için)
+            if (gusModel && !mixer) {
+                gusModel.rotation.y = Math.sin(Date.now() * 0.001) * 0.1;
             }
 
-            if(o.position.z > 5) {
-                scene.remove(o);
-                obstacles.splice(i, 1);
+            renderer.render(scene, camera);
+        }
+        animateTopScreen();
+
+
+        // --- 2. ALT EKRAN: MATTER.JS İLE FİZİK VE OYUN ALANI ---
+        const { Engine, Render, Runner, Bodies, Composite, Constraint, Mouse, MouseConstraint } = Matter;
+
+        const engine = Engine.create();
+        const bottomScreen = document.getElementById('bottom-screen');
+
+        const render = Render.create({
+            element: bottomScreen,
+            engine: engine,
+            options: {
+                width: bottomScreen.clientWidth,
+                height: bottomScreen.clientHeight,
+                wireframes: false, // Renkli ve dolgulu görünmesi için false yapıyoruz
+                background: '#fff7e6'
             }
-        }
+        });
 
-        // 2. Altınları yönet, Döndür ve Toplama Kontrolü yap
-        for(let i = coins.length - 1; i >= 0; i--) {
-            let c = coins[i];
-            c.position.z += gameSpeed;
-            c.rotation.z += 0.05; // Kendi etrafında dönme efekti
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
 
-            let playerBox = new THREE.Box3().setFromObject(playerGroup);
-            let coinBox = new THREE.Box3().setFromObject(c);
+        // Sınırlar (Duvarlar ve Zemin)
+        const ground = Bodies.rectangle(200, bottomScreen.clientHeight + 10, 400, 20, { isStatic: true });
+        Composite.add(engine.world, ground);
 
-            // Paraya dokunursa skor artar ve para yok olur
-            if(playerBox.intersectsBox(coinBox)) {
-                score += 20;
-                document.getElementById("score-text").innerText = score;
-                scene.remove(c);
-                coins.splice(i, 1);
-                continue;
+        // Örnek Bir Şeker (Fizik Objesi)
+        const candy = Bodies.circle(200, 100, 20, {
+            render: { fillStyle: '#ff4d4d' },
+            restitution: 0.5 // Esneklik
+        });
+
+        // Şekeri havada tutacak bir ip (Constraint)
+        const ropeAnchor = { x: 200, y: 20 };
+        const rope = Constraint.create({
+            pointA: ropeAnchor,
+            bodyB: candy,
+            stiffness: 0.9,
+            render: { strokeStyle: '#8b5a2b', lineWidth: 4 }
+        });
+
+        Composite.add(engine.world, [candy, rope]);
+
+        // --- 3. ETKİLEŞİM VE TEPKİ MEKANİZMASI ---
+        // Fare veya dokunmatik ekran hareketlerini algılama (İp kesme simülasyonu için)
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+                stiffness: 0.2,
+                render: { visible: false }
             }
+        });
+        Composite.add(engine.world, mouseConstraint);
 
-            if(c.position.z > 5) {
-                scene.remove(c);
-                coins.splice(i, 1);
+        // Şekerin durumunu izleyip üst ekrandaki Gus'a haber uçuran mekanizma
+        Matter.Events.on(engine, 'afterUpdate', function() {
+            // Eğer şeker ekranın altına çok yaklaşırsa (Gus'a ulaştı veya düştü varsayımı)
+            if (candy.position.y > bottomScreen.clientHeight - 50) {
+                // Burada üst ekrandaki Gus'ın animasyonunu değiştireceğiz!
+                triggerGusReaction('SUCCESS');
             }
+        });
+
+        // Gus'ın tepkilerini tetikleyen fonksiyon
+        function triggerGusReaction(state) {
+            if (!mixer || !gusModel) return;
+            
+            // Model içindeki farklı animasyonları durum koduna göre çağırabiliriz
+            // Örneğin: state === 'SUCCESS' ise gltf.animations[1]'i (Sevinme) oynat
+            console.log("Gus şu an şu tepkiyi veriyor:", state);
         }
 
-        renderer.render(scene, camera);
-    }
-
-    function resetGame() {
-        obstacles.forEach(o => scene.remove(o));
-        coins.forEach(c => scene.remove(c));
-        obstacles = [];
-        coins = [];
-        score = 0;
-        currentLane = 0;
-        gameSpeed = 0.38;
-        gameOver = false;
-        document.getElementById("score-text").innerText = score;
-        document.getElementById("gameover-screen").style.display = "none";
-        animate();
-    }
-
-    animate();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>The Pets: Subway Run 3D - Coins Update</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0; padding: 0;
-            user-select: none; -webkit-user-select: none;
-            touch-action: none;
-        }
-        body { background: #050b14; overflow: hidden; font-family: Arial, sans-serif; height: 100vh; }
-        #ui {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.8); padding: 10px 25px; border-radius: 20px;
-            border: 2px solid #a855f7; color: #fff; font-weight: bold; font-size: 18px; z-index: 10;
-            text-align: center; box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
-        }
-        #gameover-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(5, 11, 20, 0.95); display: none; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 20; color: #ef4444;
-        }
-        #restart-btn {
-            margin-top: 20px; padding: 12px 25px; background: #a855f7; color: #fff;
-            border: none; border-radius: 10px; font-size: 16px; font-weight: bold;
-        }
     </style>
-</head>
-<body>
-
-    <div id="ui">SKOR: <span id="score-text">0</span></div>
-
-    <div id="gameover-screen">
-        <h1>OYUN BİTTİ</h1>
-        <p style="color: #fff; margin-top: 10px;">Metrodaki engele çarptın!</p>
-        <button id="restart-btn" onclick="resetGame()">YENİDEN DENE</button>
-    </div>
-
-<script>
-    let score = 0;
-    let gameOver = false;
-    let currentLane = 0; // -1: Sol, 0: Orta, 1: Sağ
-    const laneWidth = 3;
-    let obstacles = [];
-    let coins = [];
-    let gameSpeed = 0.38;
-    let spawnTimer = 0;
-
-    // --- THREE.JS KURULUMU ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x05070f);
-    scene.fog = new THREE.FogExp2(0x05070f, 0.025);
-
-    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Işıkları Güçlendirdik (Modelin karanlıkta kalmaması için)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-    scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(0, 20, 15);
-    scene.add(dirLight);
-
-    // --- METRO YOLU ---
-    const roadGeo = new THREE.BoxGeometry(10, 0.1, 1000);
-    const roadMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
-    const road = new THREE.Mesh(roadGeo, roadMat);
-    road.position.z = -450;
-    scene.add(road);
-
-    // Mor Neon Şeritler
-    for(let i = -1; i <= 1; i += 2) {
-        const lineGeo = new THREE.BoxGeometry(0.15, 0.15, 1000);
-        const lineMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
-        const line = new THREE.Mesh(lineGeo, lineMat);
-        line.position.set(i * (laneWidth * 1.5), 0.05, -450);
-        scene.add(line);
-    }
-
-    // --- 🎭 OYUNCU GRUBU VE AYARI ---
-    let playerGroup = new THREE.Group();
-    // Kameranın tam önünde rahatça görebilmek için Z pozisyonunu -6 yaptık
-    playerGroup.position.set(0, 0.6, -6); 
-    scene.add(playerGroup);
-
-    // Geçici Parlak Küre (Model yüklenene kadar yedek olarak durur)
-    const placeholderGeo = new THREE.SphereGeometry(0.7, 32, 32);
-    const placeholderMat = new THREE.MeshStandardMaterial({ color: 0x00ff66, emissive: 0x00ff66, emissiveIntensity: 0.3 });
-    let placeholder = new THREE.Mesh(placeholderGeo, placeholderMat);
-    playerGroup.add(placeholder);
-
-    // GLTF Model Yükleyici
-    const loader = new THREE.GLTFLoader();
-    loader.load('my_talking_tom_2_gus.glb', function(gltf) {
-        playerGroup.remove(placeholder); // Model gelince yedeği sil
-        let model = gltf.scene;
-        model.scale.set(1.2, 1.2, 1.2); // Boyutu biraz büyüttük
-        model.rotation.y = Math.PI; // Kameraya doğru dönmesi için döndürdük
-        playerGroup.add(model);
-        console.log("Gus Modeli Aktif!");
-    }, undefined, function(err) {
-        console.log("GLB dosyası okunurken geçici yeşil küre devrede kalıyor.");
-    });
-
-    // 🎥 Kamera Açısını Tam Arkaya Sabitledik
-    camera.position.set(0, 3.8, -1.5);
-    camera.lookAt(0, 1, -12);
-
-    // --- MOBİL SWIPE KONTROLÜ ---
-    let touchStartX = 0;
-    window.addEventListener("touchstart", (e) => { touchStartX = e.touches[0].clientX; });
-    window.addEventListener("touchmove", (e) => {
-        if (gameOver) return;
-        let touchEndX = e.touches[0].clientX;
-        let diffX = touchEndX - touchStartX;
-
-        if (Math.abs(diffX) > 30) {
-            if (diffX > 0 && currentLane < 1) {
-                currentLane++;
-                touchStartX = touchEndX;
-            } else if (diffX < 0 && currentLane > -1) {
-                currentLane--;
-                touchStartX = touchEndX;
-            }
-        }
-    });
-
-    // --- ENGEL VE ALTIN ÜRETİMİ ---
-    function spawnElements() {
-        let randomLane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-        
-        // %60 ihtimalle Engel, %40 ihtimalle Altın Parası çıksın
-        if(Math.random() > 0.4) {
-            // ENGELLER
-            const obsGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6);
-            const obsMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2 });
-            const obs = new THREE.Mesh(obsGeo, obsMat);
-            obs.position.set(randomLane * laneWidth, 0.8, -120);
-            scene.add(obs);
-            obstacles.push(obs);
-        } else {
-            // ALTIN PARALAR (Dönen İnce Silindirler)
-            const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
-            const coinMat = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8, roughness: 0.2 });
-            const coin = new THREE.Mesh(coinGeo, coinMat);
-            coin.rotation.x = Math.PI / 2; // Dik durması için
-            coin.position.set(randomLane * laneWidth, 0.8, -120);
-            scene.add(coin);
-            coins.push(coin);
-        }
-    }
-
-    // --- ANA OYUN DÖNGÜSÜ ---
-    function animate() {
-        if (gameOver) return;
-
-        requestAnimationFrame(animate);
-
-        // Şerit değiştirme geçiş yumuşatması (Lerp)
-        let targetX = currentLane * laneWidth;
-        playerGroup.position.x += (targetX - playerGroup.position.x) * 0.25;
-
-        // Üretim sayacı
-        spawnTimer++;
-        if(spawnTimer > 30) {
-            spawnElements();
-            spawnTimer = 0;
-            gameSpeed += 0.003; // Gitgide hızlanma
-        }
-
-        // 1. Engelleri yönet ve Çarpışma Kontrolü yap
-        for(let i = obstacles.length - 1; i >= 0; i--) {
-            let o = obstacles[i];
-            o.position.z += gameSpeed;
-
-            let playerBox = new THREE.Box3().setFromObject(playerGroup);
-            let obstacleBox = new THREE.Box3().setFromObject(o);
-
-            if(playerBox.intersectsBox(obstacleBox)) {
-                gameOver = true;
-                document.getElementById("gameover-screen").style.display = "flex";
-            }
-
-            if(o.position.z > 5) {
-                scene.remove(o);
-                obstacles.splice(i, 1);
-            }
-        }
-
-        // 2. Altınları yönet, Döndür ve Toplama Kontrolü yap
-        for(let i = coins.length - 1; i >= 0; i--) {
-            let c = coins[i];
-            c.position.z += gameSpeed;
-            c.rotation.z += 0.05; // Kendi etrafında dönme efekti
-
-            let playerBox = new THREE.Box3().setFromObject(playerGroup);
-            let coinBox = new THREE.Box3().setFromObject(c);
-
-            // Paraya dokunursa skor artar ve para yok olur
-            if(playerBox.intersectsBox(coinBox)) {
-                score += 20;
-                document.getElementById("score-text").innerText = score;
-                scene.remove(c);
-                coins.splice(i, 1);
-                continue;
-            }
-
-            if(c.position.z > 5) {
-                scene.remove(c);
-                coins.splice(i, 1);
-            }
-        }
-
-        renderer.render(scene, camera);
-    }
-
-    function resetGame() {
-        obstacles.forEach(o => scene.remove(o));
-        coins.forEach(c => scene.remove(c));
-        obstacles = [];
-        coins = [];
-        score = 0;
-        currentLane = 0;
-        gameSpeed = 0.38;
-        gameOver = false;
-        document.getElementById("score-text").innerText = score;
-        document.getElementById("gameover-screen").style.display = "none";
-        animate();
-    }
-
-    animate();
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-</script>
 </body>
-</html>
+        </html>
